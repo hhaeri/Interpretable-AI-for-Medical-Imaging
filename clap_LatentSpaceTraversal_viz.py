@@ -144,32 +144,65 @@ if len(random_dataset.shape) == 2:
 
 mean_core, log_var_core, z_core, mean_style, log_var_style, z_style, x_reconstructed, y_pred = Clap_model.pred_vae(random_dataset)
 
+
+fig, axs = plt.subplots(1,7)#, figsize=(14, 2))  # Create a row of subplots for each variation of z_style
+all_reconstructed_images = []
+
 # Traverse the Latent Space. Pass the latent space to the decoder to obtain the reconstructed images
 #z_core:
 for dc in range (z_core_dim):
+    core_images = [] # Stores the reconstructed images for the current dc
     for j in range (-3,4):
-        temp = z_core[dc]
-        z_core[dc] = Normal(loc=mean_core[dc], scale=j*(torch.exp(0.5 * log_var_core[dc]))).rsample()
+        temp = z_core[dc].clone()
+        z_core[dc] += j*torch.exp(log_var_core[dc])
 
         z = torch.cat([z_core, z_style], dim=-1)
         #the following line needs correction to concatanate the constructed images instead of overwriting
         reconstructed_images = Clap_model.decoder(z)
         
-        # Concatenate all the reconstructed images along the new dimension (dim=0)
-        all_reconstructed_images = torch.cat(all_reconstructed_images, dim=0)
-        z_core[dc,:] = temp
+        # Append the reconstructed image to the current ds_images list
+        core_images.append(reconstructed_images[0].detach().cpu().numpy()) 
+
+        #Restore the original z_core[ds]
+        z_core[dc] = temp
+        
+    # Append the row of images for the current ds to the all_reconstructed_images list
+    all_reconstructed_images.append(core_images)
+    
+# Stack the rows of images to create a single tensor
+final_image_core = torch.Tensor(all_reconstructed_images)
+
+# Display the reconstructed images in the corresponding subplot
+axs[0].imshow(final_image_core.permute(1, 0, 2, 3).reshape(final_image_core.size(1), -1))  # Assuming you have one image in the batch
+
+
+all_reconstructed_images = []
 #z_style:
 for ds in range (z_style_dim):
+    style_images = [] # Stores the reconstructed images for the current dc
     for j in range (-3,4):
-        temp = z_style[ds]
-        z_style[ds] = Normal(loc=mean_style[ds], scale=j*(torch.exp(0.5 * log_var_style[ds]))).rsample()
+        temp = z_style[ds].clone()
+        z_style[ds] += j*torch.exp(log_var_style[ds])
 
         z = torch.cat([z_core, z_style], dim=-1)
         #the following line needs correction to concatanate the constructed images instead of overwriting
         reconstructed_images = Clap_model.decoder(z)
         
-        # Concatenate all the reconstructed images along the new dimension (dim=0)
-        all_reconstructed_images = torch.cat(all_reconstructed_images, dim=0)
+        # Append the reconstructed image to the current ds_images list
+        style_images.append(reconstructed_images[0].detach().cpu().numpy()) 
+
+        #Restore the original z_core[ds]
         z_style[ds] = temp
+        
+    # Append the row of images for the current ds to the all_reconstructed_images list
+    all_reconstructed_images.append(style_images)
+    
+# Stack the rows of images to create a single tensor
+final_image_style = torch.Tensor(all_reconstructed_images)
+
+# Display the reconstructed images in the corresponding subplot
+axs[1].imshow(final_image_style.permute(1, 0, 2, 3).reshape(final_image_stylex.size(1), -1))  # Assuming you have one image in the batch
+plt.axis('off')
+plt.show()
     
 
