@@ -145,7 +145,7 @@ if len(random_dataset.shape) == 2:
 mean_core, log_var_core, z_core, mean_style, log_var_style, z_style, x_reconstructed, y_pred = Clap_model.pred_vae(random_dataset)
 
 
-fig, axs = plt.subplots(1,7)#, figsize=(14, 2))  # Create a row of subplots for each variation of z_style
+fig, axs = plt.subplots(2,1)#, figsize=(14, 2))  # Create a row of subplots for each variation of z_style
 all_reconstructed_images = []
 
 # Traverse the Latent Space. Pass the latent space to the decoder to obtain the reconstructed images
@@ -174,7 +174,7 @@ final_image_core = torch.Tensor(all_reconstructed_images)
 
 # Display the reconstructed images in the corresponding subplot
 axs[0].imshow(final_image_core.permute(1, 0, 2, 3).reshape(final_image_core.size(1), -1))  # Assuming you have one image in the batch
-
+ax[0].title('Traversal of Zc') 
 
 all_reconstructed_images = []
 #z_style:
@@ -185,7 +185,6 @@ for ds in range (z_style_dim):
         z_style[ds] += j*torch.exp(log_var_style[ds])
 
         z = torch.cat([z_core, z_style], dim=-1)
-        #the following line needs correction to concatanate the constructed images instead of overwriting
         reconstructed_images = Clap_model.decoder(z)
         
         # Append the reconstructed image to the current ds_images list
@@ -202,6 +201,8 @@ final_image_style = torch.Tensor(all_reconstructed_images)
 
 # Display the reconstructed images in the corresponding subplot
 axs[1].imshow(final_image_style.permute(1, 0, 2, 3).reshape(final_image_stylex.size(1), -1))  # Assuming you have one image in the batch
+ax[1].title('Traversal of Zs') 
+
 plt.axis('off')
 plt.show()
     
