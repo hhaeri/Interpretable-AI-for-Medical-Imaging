@@ -38,27 +38,12 @@ LABELS = {
     "Pneumothorax": 14,
 }
 
+num_random_xrays = 1
 
-class RandomChestXRay(VisionDataset):
-    def __init__(
-        self,
-        train: bool = False,
-        transforms: Optional[Callable] = None,
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        num_random_xrays = 1,
-    ) -> None:
-        super().__init__(str(ROOT_DIR), transforms, transform, target_transform)
-        self.train = train
+def RandomChestXRay():
 
-        self.filename, self.y = self._load_data()
-
-    def _load_data(self) -> Union[List, np.ndarray]:
         idx_file = (
-            ROOT_DIR / "train_val_list.txt"
-            if self.train
-            else ROOT_DIR / "test_list.txt"
-        )
+            ROOT_DIR / "test_list.txt")
         with open(idx_file, "r") as file:
             images = set(map(lambda s: s.strip("\n"), random.sample(file.readlines(), num_random_xrays)))
         info_df = pd.read_csv(
@@ -82,41 +67,24 @@ class RandomChestXRay(VisionDataset):
             for disease in row["Finding Labels"]:
                 y[i, LABELS[disease]] = 1
 
-        return filename, y
+        #y = y[index, ...]
 
-    def __len__(self) -> int:
-        return len(self.filename)
-
-    def __getitem__(self, index: int) -> Any:
-        y = self.y[index, ...]
-
-        img_file = self.filename[index]
+        img_file = filename[0] #for num_random_xrays = 1  
         x = PIL.Image.open(ROOT_DIR / "images" / "images" / img_file)
         
-##HH chnaged transform to transforms here
-        if self.transforms is not None:
-            x = self.transforms(x)
-
-        if self.target_transform is not None:
-            y = self.target_transform(y)
-
-        return x, y
-
-
-
-random_dataset = RandomChestXRay(
-    train=False,
-    transforms=Compose(
+    	transforms=Compose(
             [
                 # some images have 1 channel, others 4. Make them all 1 channel.
                 Grayscale(num_output_channels=1),
                 resize_transform(dataset_name, 64),
             ]
-        ),
-)
-# Grabbed the dataset statistics from loading.py
-setattr(random_dataset, "mean", [0.0])
-setattr(random_dataset, "std", [1.0])
+
+        x = transforms(x)
+
+        return x, y
+
+###### Load the Data
+random_dataset = RandomChestXRay()[0]
 
 ###### Load the Model
 
