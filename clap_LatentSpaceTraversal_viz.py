@@ -1,5 +1,6 @@
 import torch
 from pathlib import Path
+from torchvision import transforms
 from torchvision.transforms import Compose, Grayscale, Normalize, Resize, ToTensor
 from ...CLAP-Git.CLAP-interpretable-predictions-main.src.architecture.clap import CLAP
 from ...CLAP-Git.CLAP-interpretable-predictions-main.src.data.loading import get_datasets, resize_transform
@@ -84,8 +85,68 @@ def RandomChestXRay():
         # Expand dimensions if needed (e.g., for a single image)
         if len(x.shape) == 2:
             x = x.unsqueeze(0)
-            
+
         return x, y, img_file
+
+def custom_transforms(x):
+
+    # Create a custom transformation for min-max scaling
+    min_max_scale = transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else x)
+
+    # Create a custom transformation for sharpness adjustment
+    sharpness_factor = 2.0  # Adjust as needed
+    sharpness_adjust = transforms.Lambda(lambda x: transforms.functional.adjust_sharpness(x, sharpness_factor))
+
+    # Create a custom transformation for gamma correction
+    gamma_factor = 0.8  # Adjust as needed (lower values make grays darker)
+    gamma_correct = transforms.Lambda(lambda x: torch.pow(x, gamma_factor))
+
+    # Create a custom transformation for clamping values within [0, 1]
+    clamp_values = transforms.Lambda(lambda x: torch.clamp(x, 0, 1))
+
+    # Create a custom transformation for final normalization
+    normalize = transforms.Normalize(mean=[0.0], std=[1.0])  # No-op for visualization (values are already in [0, 1])
+
+    # Create a list of transformations in a Compose object
+    transform = transforms.Compose([
+        min_max_scale,  # Step 1: Min-max scaling (rescale values to [0, 1])
+        sharpness_adjust,  # Step 2: Adjust sharpness (modify sharpness factor as needed)
+        gamma_correct,  # Step 3: Apply gamma correction with a lower gamma factor to make grays darker
+        clamp_values,  # Step 4: Clamp values within [0, 1]
+        normalize,  # Step 5: No-op normalization (for visualization)
+    ])
+
+    # return the transformed tensor
+    return transform(x)
+
+
+
+def traverse_latents(feature,var_span,var_mult):
+    if feature =='core':
+        var_, z_ = log_var_core.clone(), z_core.clone()
+    else:
+        var_, z_ = log_var_style.clone(), z_style.clone()
+
+    num_latents = len(var_)
+
+    fig, axs = plt.subplots(num_latents, var_span, figsize=(64*num_latents, 64*var_span))
+
+    for i in range(num_latents):
+        for j in (-var_span,var_span+1):
+            temp = z_.clone()
+            z_[i] +=  var_mult * j * torch.exp(var_[i])
+            z = torch.cat([z_ if feature=='core' else z_core, z_ if feature=='style' else z_style], dim=-1)
+            recon_image = Clap_model.decoder(z)
+            z_ = temp
+            # Plot each image as we reconstruct rather than storing
+            axs[i,j].imshow(recon_image)
+            #axs[i,j].set_title(f"Latent {i}")
+
+    plt.axis('off')
+    plt.tight_layout()
+    plt.show()
+
+
 
 ###### Load the Data
 
@@ -110,73 +171,10 @@ Clap_model.load_state_dict(checkpoint['state_dict'])
 
 ###### Encode Data
 
-
-
-
 # Pass the input through the encoder to obtain latent representations
 
-mean_core, log_var_core, z_core, mean_style, log_var_style, z_style, x_reconstructed, y_pred = Clap_model.pred_vae(random_dataset)
+mean_core, log_var_core, z_core, mean_style, log_var_style, z_style, x_reconstructed, y_pred = Clap_model.pred_vae(random_dataset).values()
 
 
-fig, axs = plt.subplots(2,1)#, figsize=(14, 2))  # Create a row of subplots for each variation of z_style
-all_reconstructed_images = []
-
-# Traverse the Latent Space. Pass the latent space to the decoder to obtain the reconstructed images
-#z_core:
-for dc in range (z_core_dim):
-    core_images = [] # Stores the reconstructed images for the current dc
-    for j in range (-3,4):
-        temp = z_core[dc].clone()
-        z_core[dc] += j*torch.exp(log_var_core[dc])
-
-        z = torch.cat([z_core, z_style], dim=-1)
-        #the following line needs correction to concatanate the constructed images instead of overwriting
-        reconstructed_images = Clap_model.decoder(z)
-        
-        # Append the reconstructed image to the current ds_images list
-        core_images.append(reconstructed_images[0].detach().cpu().numpy()) 
-
-        #Restore the original z_core[ds]
-        z_core[dc] = temp
-        
-    # Append the row of images for the current ds to the all_reconstructed_images list
-    all_reconstructed_images.append(core_images)
-    
-# Stack the rows of images to create a single tensor
-final_image_core = torch.Tensor(all_reconstructed_images)
-
-# Display the reconstructed images in the corresponding subplot
-axs[0].imshow(final_image_core.permute(1, 0, 2, 3).reshape(final_image_core.size(1), -1))  # Assuming you have one image in the batch
-ax[0].title('Traversal of Zc') 
-
-all_reconstructed_images = []
-#z_style:
-for ds in range (z_style_dim):
-    style_images = [] # Stores the reconstructed images for the current dc
-    for j in range (-3,4):
-        temp = z_style[ds].clone()
-        z_style[ds] += j*torch.exp(log_var_style[ds])
-
-        z = torch.cat([z_core, z_style], dim=-1)
-        reconstructed_images = Clap_model.decoder(z)
-        
-        # Append the reconstructed image to the current ds_images list
-        style_images.append(reconstructed_images[0].detach().cpu().numpy()) 
-
-        #Restore the original z_core[ds]
-        z_style[ds] = temp
-        
-    # Append the row of images for the current ds to the all_reconstructed_images list
-    all_reconstructed_images.append(style_images)
-    
-# Stack the rows of images to create a single tensor
-final_image_style = torch.Tensor(all_reconstructed_images)
-
-# Display the reconstructed images in the corresponding subplot
-axs[1].imshow(final_image_style.permute(1, 0, 2, 3).reshape(final_image_stylex.size(1), -1))  # Assuming you have one image in the batch
-ax[1].title('Traversal of Zs') 
-
-plt.axis('off')
-plt.show()
-    
-
+feature,var_span,var_mult = 'core', 3,10
+traverse_latents(feature,var_span,var_mult)
