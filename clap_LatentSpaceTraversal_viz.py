@@ -77,14 +77,20 @@ def RandomChestXRay():
                 # some images have 1 channel, others 4. Make them all 1 channel.
                 Grayscale(num_output_channels=1),
                 resize_transform(dataset_name, 64),
-            ]
+            ])
 
         x = transforms(x)
 
-        return x, y
+        # Expand dimensions if needed (e.g., for a single image)
+        if len(x.shape) == 2:
+            x = x.unsqueeze(0)
+            
+        return x, y, img_file
 
 ###### Load the Data
-random_dataset = RandomChestXRay()[0]
+
+random_dataset,label,img_name = RandomChestXRay()
+print(img_name)
 
 ###### Load the Model
 
@@ -104,9 +110,8 @@ Clap_model.load_state_dict(checkpoint['state_dict'])
 
 ###### Encode Data
 
-# Expand dimensions if needed (e.g., for a single image)
-if len(random_dataset.shape) == 2:
-    random_dataset = random_dataset.unsqueeze(0)
+
+
 
 # Pass the input through the encoder to obtain latent representations
 
