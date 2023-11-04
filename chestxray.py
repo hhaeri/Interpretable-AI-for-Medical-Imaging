@@ -7,7 +7,7 @@ from torchvision.datasets import VisionDataset
 
 from .utils import DATA_DIR
 
-ROOT_DIR = DATA_DIR / "chestxray" / "CXR8"
+ROOT_DIR = DATA_DIR / "CXR8"
 LABELS = {
     "Atelectasis": 0,
     "Cardiomegaly": 1,
@@ -78,12 +78,12 @@ class ChestXRay(VisionDataset):
         y = self.y[index, ...]
 
         img_file = self.filename[index]
-        x = PIL.Image.open(ROOT_DIR / "images" / "images" / img_file)
+        x = PIL.Image.open(ROOT_DIR / "images" / img_file)
 
-        if self.transform is not None:
-            x = self.transform(x)
+        if self.transforms is not None:
+            x = self.transforms(x)
 
-        if self.target_transform is not None:
-            y = self.target_transform(y)
+        if self.target_transforms is not None:
+            y = self.target_transforms(y)
 
         return x, y
