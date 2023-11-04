@@ -15,10 +15,10 @@ from torchvision.datasets import VisionDataset
 
 
 
-RESULTS_DIR = Path("../CLAP-Git/resolution64")
+RESULTS_DIR = Path("./CLAP/resolution64")
 
 #from .chestxray import ROOT_DIR
-ROOT_DIR = Path("../ NIHCC_CRX_Full_Res / CXR8")
+ROOT_DIR = Path("./ NIHCC_ChestXray / CXR8")
 
 dataset_name = "ChestXRay"
 ###### Load the Data
