@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from torch.utils.data.sampler import Sampler
 
-DATA_DIR = Path("./data").resolve()
+DATA_DIR = Path("../NIHCC_ChestXray").resolve()
 
 
 class SubsetSampler(Sampler):
