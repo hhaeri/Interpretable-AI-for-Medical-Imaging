@@ -77,7 +77,7 @@ def RandomChestXRay():
             [
                 # some images have 1 channel, others 4. Make them all 1 channel.
                 Grayscale(num_output_channels=1),
-                resize_transform(dataset_name, 64),
+                resize_transform(dataset_name, 64), #this includes the ToTensor transformation
             ])
 
         x = transforms(x)
@@ -117,7 +117,7 @@ def custom_transforms(x):
     ])
 
     # return the transformed tensor
-    return transform(x)
+    return transform(x)[0,:,:,:]
 
 
 
@@ -138,8 +138,9 @@ def traverse_latents(feature,var_span,var_mult):
             z = torch.cat([z_ if feature=='core' else z_core, z_ if feature=='style' else z_style], dim=-1)
             recon_image = Clap_model.decoder(z)
             z_ = temp
+            transformed_image = custom_transforms(recon_image)
             # Plot each image as we reconstruct rather than storing
-            axs[i,j].imshow(recon_image)
+            axs[i,j].imshow(transformed_image[0,:,:])
             #axs[i,j].set_title(f"Latent {i}")
 
     plt.axis('off')
