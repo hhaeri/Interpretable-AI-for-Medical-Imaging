@@ -71,7 +71,7 @@ def RandomChestXRay():
         #y = y[index, ...]
 
         img_file = filename[0] #for num_random_xrays = 1  
-        x = PIL.Image.open(ROOT_DIR / "images" / "images" / img_file)
+        x = PIL.Image.open(ROOT_DIR / "images" / img_file)
         
     	transforms=Compose(
             [
