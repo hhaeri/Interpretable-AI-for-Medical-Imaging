@@ -2,8 +2,8 @@ import torch
 from pathlib import Path
 from torchvision import transforms
 from torchvision.transforms import Compose, Grayscale, Normalize, Resize, ToTensor
-from ...CLAP-Git.CLAP-interpretable-predictions-main.src.architecture.clap import CLAP
-from ...CLAP-Git.CLAP-interpretable-predictions-main.src.data.loading import get_datasets, resize_transform
+from .CLAP.src.architecture.clap import CLAP
+from .CLAP.src.data.loading import get_datasets, resize_transform
 from typing import Any, Callable, List, Optional, Union
 
 import matplotlib.pyplot as plt
