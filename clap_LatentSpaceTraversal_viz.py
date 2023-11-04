@@ -6,6 +6,8 @@ from ...CLAP-Git.CLAP-interpretable-predictions-main.src.architecture.clap impor
 from ...CLAP-Git.CLAP-interpretable-predictions-main.src.data.loading import get_datasets, resize_transform
 from typing import Any, Callable, List, Optional, Union
 
+import matplotlib.pyplot as plt
+
 import PIL
 import numpy as np
 import pandas as pd
