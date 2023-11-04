@@ -100,7 +100,7 @@ def get_datasets(dataset_name: str) -> Tuple[Dataset, Dataset, int, int, int]:
             train=False,
             transforms=transforms,
         )
-        n_channels, image_dim, n_classes = 3, 64, 15
+        n_channels, image_dim, n_classes = 1, 64, 15
     else:
         raise NotImplementedError(f"Dataset {dataset_name} unknown.")
 
