@@ -1,3 +1,5 @@
+'''The original trainer.py file was not working for me when the GPU training was activated and I noticed that although the model and weights are pushed to the GPU the data
+is still on CPU and thus I get mismatch errors of data and model location. So I had to edit the original code to accommodate this. The added lines are indicated by ##HH'''
 import logging.handlers
 import shutil
 from datetime import datetime
