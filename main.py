@@ -1,3 +1,4 @@
+'''The original file was commented by #HH to show how the code can be modified in case CPU training is needed'''
 import logging
 import pickle as pkl
 from argparse import ArgumentParser
