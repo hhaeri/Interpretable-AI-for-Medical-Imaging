@@ -1,13 +1,15 @@
 import torch
+import torch.nn.functional as F
 from pathlib import Path
 from torchvision import transforms
 from torchvision.transforms import Compose, Grayscale, Normalize, Resize, ToTensor
-from .CLAP.src.architecture.clap import CLAP
-from .CLAP.src.data.loading import get_datasets, resize_transform
+from CLAP.src.architecture.clap import CLAP
+from CLAP.src.data.loading import get_datasets, resize_transform
 from typing import Any, Callable, List, Optional, Union
 
 import matplotlib.pyplot as plt
 
+import random
 import PIL
 import numpy as np
 import pandas as pd
@@ -15,10 +17,10 @@ from torchvision.datasets import VisionDataset
 
 
 
-RESULTS_DIR = Path("./CLAP/resolution64")
+RESULTS_DIR = Path("./resolution64_GPU_2")
 
 #from .chestxray import ROOT_DIR
-ROOT_DIR = Path("./ NIHCC_ChestXray / CXR8")
+ROOT_DIR = Path("./NIHCC_ChestXray/CXR8")
 
 dataset_name = "ChestXRay"
 ###### Load the Data
@@ -75,7 +77,7 @@ def RandomChestXRay():
         img_file = filename[0] #for num_random_xrays = 1  
         x = PIL.Image.open(ROOT_DIR / "images" / img_file)
         
-    	transforms=Compose(
+        transforms=Compose(
             [
                 # some images have 1 channel, others 4. Make them all 1 channel.
                 Grayscale(num_output_channels=1),
@@ -84,8 +86,9 @@ def RandomChestXRay():
 
         x = transforms(x)
 
+
         # Expand dimensions if needed (e.g., for a single image)
-        if len(x.shape) == 2:
+        if len(x.shape) <4:
             x = x.unsqueeze(0)
 
         return x, y, img_file
@@ -96,7 +99,7 @@ def custom_transforms(x):
     min_max_scale = transforms.Lambda(lambda x: (x - x.min()) / (x.max() - x.min()) if x.max() != x.min() else x)
 
     # Create a custom transformation for sharpness adjustment
-    sharpness_factor = 2.0  # Adjust as needed
+    sharpness_factor = 8.0  # Adjust as needed
     sharpness_adjust = transforms.Lambda(lambda x: transforms.functional.adjust_sharpness(x, sharpness_factor))
 
     # Create a custom transformation for gamma correction
@@ -129,32 +132,78 @@ def traverse_latents(feature,var_span,var_mult):
     else:
         var_, z_ = log_var_style.clone(), z_style.clone()
 
-    num_latents = len(var_)
+    num_latents = len(z_[0])
+    #print(num_latents)
+    fig, axs = plt.subplots(num_latents, var_span*2+1, figsize=(1*(var_span*2+1),1*num_latents),gridspec_kw = {'wspace':0, 'hspace':0}) #(width,height)
 
-    fig, axs = plt.subplots(num_latents, var_span, figsize=(64*num_latents, 64*var_span))
-
+    #print(axs.shape)
     for i in range(num_latents):
-        for j in (-var_span,var_span+1):
+        for j in range(-var_span,var_span+1):
             temp = z_.clone()
-            z_[i] +=  var_mult * j * torch.exp(var_[i])
+            z_[0][i] +=   var_mult *j * torch.exp(var_[0][i])
             z = torch.cat([z_ if feature=='core' else z_core, z_ if feature=='style' else z_style], dim=-1)
             recon_image = Clap_model.decoder(z)
             z_ = temp
             transformed_image = custom_transforms(recon_image)
             # Plot each image as we reconstruct rather than storing
-            axs[i,j].imshow(transformed_image[0,:,:])
+            #print(transformed_image.shape)
+            axs[i,j+var_span].imshow(transformed_image[0,:,:].detach().numpy(), cmap='gray', aspect='auto')
+            #axs[i, j + var_span].set_aspect('equal')  # Set the aspect ratio to 'equal'
+            axs[i, j].axis('off')
             #axs[i,j].set_title(f"Latent {i}")
-
+    plt.subplots_adjust(wspace=0, hspace=0)
     plt.axis('off')
     plt.tight_layout()
     plt.show()
 
 
 
+
+def predict_top_labels(top_k,logits):
+
+    # Number of top predictions you want: top_k
+
+    # Calculate class probabilities using softmax
+    probabilities = F.softmax(logits, dim=0)
+
+
+    # Find the top-k class indices and their corresponding probabilities
+    top_indices = torch.topk(probabilities, top_k)
+
+    top_class_indices = top_indices.indices
+    top_class_probabilities = top_indices.values
+    # Reverse the LABELS dictionary to map indices to labels
+    INDEX_TO_LABEL = {v: k for k, v in LABELS.items()}
+    # Get the corresponding class labels or class names
+    top_classes = [INDEX_TO_LABEL[idx.item()] for idx in top_class_indices]
+
+    # Create a list of (class, probability) tuples
+    top_predictions = [(class_name, probability.item()) for class_name, probability in zip(top_classes, top_class_probabilities)]
+
+    print("Top Predictions:")
+    for class_name, probability in top_predictions:
+        print(f"{class_name}: Probability = {probability:.4f}")
+
+
+
+def logits_to_labels(logits: torch.Tensor) -> torch.Tensor:
+    """Convert tensor of logit values to binary labels."""
+
+    return torch.where(logits > 0, 1, 0)
+
+
+def labels_to_conditions(label):
+
+    conditions = [l for l, value in LABELS.items() if label[0][value] != 0]
+    return conditions
+
+
 ###### Load the Data
 
 random_dataset,label,img_name = RandomChestXRay()
-print(img_name)
+#conditions = [l for l, value in LABELS.items() if label[0][value] != 0]
+print('image_name:',img_name,'True Lables:',labels_to_conditions(label))
+
 
 ###### Load the Model
 
@@ -170,7 +219,7 @@ Clap_model = CLAP(n_channels, image_dim, z_style_dim, z_core_dim, n_classes)
 
 checkpoint_path = RESULTS_DIR/"model_best.pth.tar.gz" 
 checkpoint = torch.load(checkpoint_path)
-Clap_model.load_state_dict(checkpoint['state_dict'])
+Clap_model.load_state_dict(checkpoint['model_state_dict'])
 
 ###### Encode Data
 
@@ -178,6 +227,10 @@ Clap_model.load_state_dict(checkpoint['state_dict'])
 
 mean_core, log_var_core, z_core, mean_style, log_var_style, z_style, x_reconstructed, y_pred = Clap_model.pred_vae(random_dataset).values()
 
+# print the predicted labels
+print("Predicted Labels:",labels_to_conditions(logits_to_labels(y_pred)))
+predict_top_labels(3,y_pred[0])
 
+# Traverse the latent space and visualize the reconstructed images
 feature,var_span,var_mult = 'core', 3,10
 traverse_latents(feature,var_span,var_mult)
